@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Gym Log</title>
+<style>
+  :root{
+    --bg: #0f1210;
+    --bg-elevated: #171b18;
+    --bg-card: #1d2320;
+    --border: #2a322c;
+    --text: #eef1ea;
+    --text-dim: #8b9690;
+    --accent: #d6ff3f;
+    --accent-dim: #7c8a2a;
+    --danger: #ff6b57;
+    --radius: 14px;
+    --font-display: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+  html,body{
+    margin:0; padding:0; background:var(--bg); color:var(--text);
+    font-family: var(--font-display);
+    height:100%;
+    overscroll-behavior-y: none;
+  }
+  body{
+    display:flex; flex-direction:column;
+    min-height:100vh;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  ::selection{ background:var(--accent); color:#111; }
+
+  header{
+    padding: 18px 18px 10px 18px;
+    position: sticky; top:0; z-index:10;
+    background: linear-gradient(180deg, var(--bg) 70%, transparent);
+  }
+  .brand{
+    display:flex; align-items:baseline; gap:8px; margin-bottom:14px;
+  }
+  .brand .mark{
+    width:10px; height:10px; border-radius:2px; background:var(--accent);
+    transform: rotate(45deg); flex-shrink:0;
+  }
+  .brand h1{
+    font-size: 20px; margin:0; letter-spacing:-0.02em; font-weight:700;
+  }
+  .brand .sub{
+    font-size:11px; color:var(--text-dim); font-family:var(--font-mono);
+    text-transform:uppercase; letter-spacing:0.08em;
+  }
+
+  .day-row{
+    display:flex; gap:8px; overflow-x:auto; padding-bottom:4px;
+    scrollbar-width:none;
+  }
+  .day-row::-webkit-scrollbar{ display:none; }
+  .day-chip{
+    flex-shrink:0;
+    padding: 9px 16px;
+    border-radius: 999px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 14px;
+    font-weight: 600;
+    cursor:pointer;
+    white-space:nowrap;
+    transition: all .15s ease;
+    user-select:none;
+  }
+  .day-chip.active{
+    background: var(--accent); color:#10130f; border-color:var(--accent);
+  }
+  .day-chip.add{
+    color: var(--accent); border-style:dashed; font-weight:700;
+  }
+
+  main{
+    flex:1; padding: 8px 18px 100px 18px;
+  }
+
+  .day-toolbar{
+    display:flex; justify-content:flex-end; gap:10px; margin: 6px 0 16px 0;
+  }
+  .icon-btn{
+    background:none; border:1px solid var(--border); color:var(--text-dim);
+    padding:6px 12px; border-radius:8px; font-size:12px; font-family:var(--font-mono);
+    cursor:pointer; letter-spacing:0.03em;
+  }
+  .icon-btn.danger{ color: var(--danger); border-color: rgba(255,107,87,0.3); }
+  .icon-btn:active{ transform: scale(0.96); }
+
+  .empty-state{
+    text-align:center; padding: 60px 20px; color:var(--text-dim);
+  }
+  .empty-state .big{
+    font-size: 15px; color:var(--text); margin-bottom:6px; font-weight:600;
+  }
+  .empty-state .small{ font-size:13px; }
+
+  .exercise-card{
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .exercise-head{
+    display:flex; justify-content:space-between; align-items:center;
+    margin-bottom: 12px;
+  }
+  .exercise-name{
+    font-size: 16px; font-weight:700; letter-spacing:-0.01em;
+  }
+  .exercise-actions{ display:flex; gap:6px; }
+  .ghost-btn{
+    background:none; border:none; color:var(--text-dim);
+    font-size: 16px; cursor:pointer; padding:4px 6px; line-height:1;
+  }
+  .ghost-btn:active{ color: var(--text); }
+
+  .weights-grid{
+    display:flex; flex-wrap:wrap; gap:8px;
+  }
+  .weight-chip{
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 12px;
+    cursor:pointer;
+    min-width: 84px;
+    transition: border-color .15s ease;
+  }
+  .weight-chip:active{ border-color: var(--accent); }
+  .weight-chip .label{
+    font-size: 10px; color:var(--text-dim); text-transform:uppercase;
+    letter-spacing:0.06em; font-family:var(--font-mono); margin-bottom:2px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width: 140px;
+  }
+  .weight-chip .value{
+    font-size: 18px; font-weight:700; font-family:var(--font-mono); color:var(--accent);
+  }
+  .weight-chip .value .unit{ font-size:11px; color:var(--text-dim); margin-left:2px; font-weight:500; }
+
+  .add-weight-btn{
+    background:none; border:1px dashed var(--border); border-radius:10px;
+    color:var(--text-dim); padding: 8px 14px; font-size:13px; cursor:pointer;
+    min-width: 84px; font-family:var(--font-mono);
+  }
+
+  .fab{
+    position: fixed; right:20px; bottom: 24px;
+    width:56px; height:56px; border-radius:50%;
+    background: var(--accent); color:#10130f;
+    border:none; font-size:28px; font-weight:400;
+    box-shadow: 0 8px 24px rgba(214,255,63,0.25);
+    cursor:pointer; z-index:20;
+    display:flex; align-items:center; justify-content:center;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .fab:active{ transform: scale(0.94); }
+
+  /* Modal */
+  .overlay{
+    position: fixed; inset:0; background: rgba(0,0,0,0.55);
+    display:flex; align-items:flex-end; justify-content:center;
+    z-index: 50; opacity:0; pointer-events:none;
+    transition: opacity .2s ease;
+  }
+  .overlay.open{ opacity:1; pointer-events:auto; }
+  .sheet{
+    background: var(--bg-elevated);
+    width:100%; max-width:480px;
+    border-radius: 20px 20px 0 0;
+    padding: 20px 20px calc(20px + env(safe-area-inset-bottom)) 20px;
+    transform: translateY(100%);
+    transition: transform .25s cubic-bezier(.32,.72,0,1);
+    border-top: 1px solid var(--border);
+  }
+  .overlay.open .sheet{ transform: translateY(0); }
+  .sheet h2{
+    font-size:15px; margin:0 0 16px 0; color:var(--text-dim);
+    text-transform:uppercase; letter-spacing:0.06em; font-family:var(--font-mono);
+  }
+  .sheet input{
+    width:100%; background: var(--bg-card); border:1px solid var(--border);
+    color:var(--text); padding: 14px; border-radius:10px; font-size:16px;
+    margin-bottom:12px; font-family: var(--font-display);
+  }
+  .sheet input:focus{ outline:none; border-color: var(--accent); }
+  .sheet input.numeric{ font-family: var(--font-mono); font-size:22px; font-weight:700; }
+  .sheet-row{ display:flex; gap:10px; }
+  .sheet-btn{
+    flex:1; padding:14px; border-radius:10px; border:none;
+    font-size:15px; font-weight:700; cursor:pointer; font-family:var(--font-display);
+  }
+  .sheet-btn.primary{ background: var(--accent); color:#10130f; }
+  .sheet-btn.secondary{ background: var(--bg-card); color:var(--text-dim); border:1px solid var(--border); }
+  .sheet-btn.delete{ background: rgba(255,107,87,0.12); color:var(--danger); border:1px solid rgba(255,107,87,0.3); }
+
+  .sync-dot{
+    width:6px; height:6px; border-radius:50%; display:inline-block; margin-right:6px;
+    background: var(--text-dim);
+  }
+  .sync-dot.ok{ background: var(--accent); }
+  .sync-dot.err{ background: var(--danger); }
+
+  @media (min-width: 720px){
+    body{ align-items:center; }
+    header, main{ width:100%; max-width: 720px; }
+    .fab{ right: calc(50vw - 360px + 20px); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span class="mark"></span>
+    <h1>Gym Log</h1>
+  </div>
+  <div class="day-row" id="dayRow"></div>
+</header>
+
+<main>
+  <div class="day-toolbar" id="dayToolbar" style="display:none;">
+    <button class="icon-btn danger" id="deleteDayBtn">Tag löschen</button>
+  </div>
+  <div id="content"></div>
+</main>
+
+<button class="fab" id="fabAddExercise" title="Übung hinzufügen" style="display:none;">+</button>
+
+<!-- Modal: add day -->
+<div class="overlay" id="overlayAddDay">
+  <div class="sheet">
+    <h2>Neuer Tag</h2>
+    <input type="text" id="inputDayName" placeholder="z. B. Push, Legs, Rücken...">
+    <div class="sheet-row">
+      <button class="sheet-btn secondary" data-close="overlayAddDay">Abbrechen</button>
+      <button class="sheet-btn primary" id="confirmAddDay">Erstellen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: add exercise -->
+<div class="overlay" id="overlayAddExercise">
+  <div class="sheet">
+    <h2>Neue Übung</h2>
+    <input type="text" id="inputExerciseName" placeholder="z. B. Kabelzug, Bankdrücken...">
+    <div class="sheet-row">
+      <button class="sheet-btn secondary" data-close="overlayAddExercise">Abbrechen</button>
+      <button class="sheet-btn primary" id="confirmAddExercise">Erstellen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: add weight -->
+<div class="overlay" id="overlayAddWeight">
+  <div class="sheet">
+    <h2>Neues Gewicht</h2>
+    <input type="text" id="inputWeightLabel" placeholder="Bezeichnung, z. B. links / Seil / Griff A">
+    <input type="number" inputmode="decimal" step="0.5" class="numeric" id="inputWeightValue" placeholder="0 kg">
+    <div class="sheet-row">
+      <button class="sheet-btn secondary" data-close="overlayAddWeight">Abbrechen</button>
+      <button class="sheet-btn primary" id="confirmAddWeight">Erstellen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: edit weight -->
+<div class="overlay" id="overlayEditWeight">
+  <div class="sheet">
+    <h2 id="editWeightTitle">Gewicht ändern</h2>
+    <input type="text" id="inputEditWeightLabel" placeholder="Bezeichnung">
+    <input type="number" inputmode="decimal" step="0.5" class="numeric" id="inputEditWeightValue" placeholder="0 kg">
+    <div class="sheet-row" style="margin-bottom:10px;">
+      <button class="sheet-btn secondary" data-close="overlayEditWeight">Abbrechen</button>
+      <button class="sheet-btn primary" id="confirmEditWeight">Speichern</button>
+    </div>
+    <button class="sheet-btn delete" id="deleteWeightBtn" style="width:100%;">Gewicht löschen</button>
+  </div>
+</div>
+
+<!-- Modal: exercise options -->
+<div class="overlay" id="overlayExerciseOptions">
+  <div class="sheet">
+    <h2 id="exerciseOptionsTitle">Übung</h2>
+    <button class="sheet-btn delete" id="deleteExerciseBtn" style="width:100%;">Übung löschen</button>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import {
+    getFirestore, collection, doc, addDoc, updateDoc, deleteDoc,
+    onSnapshot, query, orderBy, serverTimestamp, setDoc
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  // ==== FIREBASE CONFIG =========================================
+  // Hier deine eigene Firebase-Config einfügen (siehe Anleitung).
+  const firebaseConfig = {
+    apiKey: "AIzaSyADHQ-XeQpaFe4irLV_apIU086E9lHroKs",
+    authDomain: "gymlog-2ad45.firebaseapp.com",
+    projectId: "gymlog-2ad45",
+    storageBucket: "gymlog-2ad45.firebasestorage.app",
+    messagingSenderId: "950130588429",
+    appId: "1:950130588429:web:be52a423f40a9ee5210e44"
+  };
+  // ================================================================
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const daysCol = collection(db, "gymDays");
+
+  let days = [];              // [{id, name, order, exercises:[{id,name,weights:[{id,label,value}]}]}]
+  let selectedDayId = null;
+
+  function uid(){ return Math.random().toString(36).slice(2, 10); }
+
+  // ---------- Realtime sync ----------
+  const q = query(daysCol, orderBy("order", "asc"));
+  onSnapshot(q, (snap) => {
+    days = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (!selectedDayId && days.length) selectedDayId = days[0].id;
+    if (selectedDayId && !days.find(d => d.id === selectedDayId)) {
+      selectedDayId = days.length ? days[0].id : null;
+    }
+    renderDays();
+    renderContent();
+  }, (err) => {
+    console.error(err);
+    document.getElementById('content').innerHTML =
+      `<div class="empty-state"><div class="big">Verbindung fehlgeschlagen</div>
+      <div class="small">Prüfe deine Firebase-Config und Firestore-Regeln.</div></div>`;
+  });
+
+  // ---------- Rendering ----------
+  function renderDays(){
+    const row = document.getElementById('dayRow');
+    row.innerHTML = '';
+    days.forEach(day => {
+      const chip = document.createElement('div');
+      chip.className = 'day-chip' + (day.id === selectedDayId ? ' active' : '');
+      chip.textContent = day.name;
+      chip.onclick = () => { selectedDayId = day.id; renderDays(); renderContent(); };
+      row.appendChild(chip);
+    });
+    const add = document.createElement('div');
+    add.className = 'day-chip add';
+    add.textContent = '+ Tag';
+    add.onclick = () => openModal('overlayAddDay');
+    row.appendChild(add);
+  }
+
+  function renderContent(){
+    const content = document.getElementById('content');
+    const toolbar = document.getElementById('dayToolbar');
+    const fab = document.getElementById('fabAddExercise');
+    const day = days.find(d => d.id === selectedDayId);
+
+    if (!day){
+      toolbar.style.display = 'none';
+      fab.style.display = 'none';
+      content.innerHTML = `<div class="empty-state">
+        <div class="big">Noch kein Tag angelegt</div>
+        <div class="small">Tippe oben auf „+ Tag“, um loszulegen.</div>
+      </div>`;
+      return;
+    }
+
+    toolbar.style.display = 'flex';
+    fab.style.display = 'flex';
+
+    const exercises = day.exercises || [];
+    if (!exercises.length){
+      content.innerHTML = `<div class="empty-state">
+        <div class="big">Keine Übungen für „${escapeHtml(day.name)}“</div>
+        <div class="small">Tippe unten rechts auf „+“, um eine Übung hinzuzufügen.</div>
+      </div>`;
+      return;
+    }
+
+    content.innerHTML = '';
+    exercises.forEach(ex => {
+      const card = document.createElement('div');
+      card.className = 'exercise-card';
+
+      const head = document.createElement('div');
+      head.className = 'exercise-head';
+      head.innerHTML = `<div class="exercise-name">${escapeHtml(ex.name)}</div>`;
+      const actions = document.createElement('div');
+      actions.className = 'exercise-actions';
+      const optBtn = document.createElement('button');
+      optBtn.className = 'ghost-btn';
+      optBtn.textContent = '⋯';
+      optBtn.onclick = () => openExerciseOptions(day.id, ex.id, ex.name);
+      actions.appendChild(optBtn);
+      head.appendChild(actions);
+      card.appendChild(head);
+
+      const grid = document.createElement('div');
+      grid.className = 'weights-grid';
+      (ex.weights || []).forEach(w => {
+        const chip = document.createElement('div');
+        chip.className = 'weight-chip';
+        chip.innerHTML = `<div class="label">${escapeHtml(w.label)}</div>
+          <div class="value">${formatNum(w.value)}<span class="unit">kg</span></div>`;
+        chip.onclick = () => openEditWeight(day.id, ex.id, w.id, w.label, w.value);
+        grid.appendChild(chip);
+      });
+      const addBtn = document.createElement('button');
+      addBtn.className = 'add-weight-btn';
+      addBtn.textContent = '+ Gewicht';
+      addBtn.onclick = () => openAddWeight(day.id, ex.id);
+      grid.appendChild(addBtn);
+
+      card.appendChild(grid);
+      content.appendChild(card);
+    });
+  }
+
+  function formatNum(n){
+    n = Number(n);
+    return Number.isInteger(n) ? n.toString() : n.toString().replace('.', ',');
+  }
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // ---------- Modal helpers ----------
+  function openModal(id){
+    document.getElementById(id).classList.add('open');
+  }
+  function closeModal(id){
+    document.getElementById(id).classList.remove('open');
+  }
+  document.querySelectorAll('[data-close]').forEach(btn => {
+    btn.onclick = () => closeModal(btn.dataset.close);
+  });
+  document.querySelectorAll('.overlay').forEach(ov => {
+    ov.addEventListener('click', (e) => { if (e.target === ov) closeModal(ov.id); });
+  });
+
+  // ---------- Day CRUD ----------
+  document.getElementById('confirmAddDay').onclick = async () => {
+    const input = document.getElementById('inputDayName');
+    const name = input.value.trim();
+    if (!name) return;
+    const order = days.length ? Math.max(...days.map(d => d.order || 0)) + 1 : 0;
+    const newDoc = doc(daysCol);
+    await setDoc(newDoc, { name, order, exercises: [], createdAt: serverTimestamp() });
+    selectedDayId = newDoc.id;
+    input.value = '';
+    closeModal('overlayAddDay');
+  };
+
+  document.getElementById('deleteDayBtn').onclick = async () => {
+    const day = days.find(d => d.id === selectedDayId);
+    if (!day) return;
+    if (!confirm(`Tag „${day.name}“ inklusive aller Übungen wirklich löschen?`)) return;
+    await deleteDoc(doc(db, "gymDays", day.id));
+  };
+
+  // ---------- Exercise CRUD ----------
+  document.getElementById('fabAddExercise').onclick = () => {
+    document.getElementById('inputExerciseName').value = '';
+    openModal('overlayAddExercise');
+  };
+
+  document.getElementById('confirmAddExercise').onclick = async () => {
+    const name = document.getElementById('inputExerciseName').value.trim();
+    if (!name || !selectedDayId) return;
+    const day = days.find(d => d.id === selectedDayId);
+    const exercises = [...(day.exercises || []), { id: uid(), name, weights: [] }];
+    await updateDoc(doc(db, "gymDays", day.id), { exercises });
+    closeModal('overlayAddExercise');
+  };
+
+  let currentExerciseOptions = null;
+  function openExerciseOptions(dayId, exId, exName){
+    currentExerciseOptions = { dayId, exId };
+    document.getElementById('exerciseOptionsTitle').textContent = exName;
+    openModal('overlayExerciseOptions');
+  }
+  document.getElementById('deleteExerciseBtn').onclick = async () => {
+    if (!currentExerciseOptions) return;
+    const { dayId, exId } = currentExerciseOptions;
+    const day = days.find(d => d.id === dayId);
+    const exercises = (day.exercises || []).filter(e => e.id !== exId);
+    await updateDoc(doc(db, "gymDays", dayId), { exercises });
+    closeModal('overlayExerciseOptions');
+  };
+
+  // ---------- Weight CRUD ----------
+  let currentAddWeight = null;
+  function openAddWeight(dayId, exId){
+    currentAddWeight = { dayId, exId };
+    document.getElementById('inputWeightLabel').value = '';
+    document.getElementById('inputWeightValue').value = '';
+    openModal('overlayAddWeight');
+  }
+  document.getElementById('confirmAddWeight').onclick = async () => {
+    if (!currentAddWeight) return;
+    const label = document.getElementById('inputWeightLabel').value.trim() || 'Standard';
+    const value = parseFloat(document.getElementById('inputWeightValue').value) || 0;
+    const { dayId, exId } = currentAddWeight;
+    const day = days.find(d => d.id === dayId);
+    const exercises = (day.exercises || []).map(e => {
+      if (e.id !== exId) return e;
+      return { ...e, weights: [...(e.weights || []), { id: uid(), label, value }] };
+    });
+    await updateDoc(doc(db, "gymDays", dayId), { exercises });
+    closeModal('overlayAddWeight');
+  };
+
+  let currentEditWeight = null;
+  function openEditWeight(dayId, exId, weightId, label, value){
+    currentEditWeight = { dayId, exId, weightId };
+    document.getElementById('inputEditWeightLabel').value = label;
+    document.getElementById('inputEditWeightValue').value = value;
+    openModal('overlayEditWeight');
+  }
+  document.getElementById('confirmEditWeight').onclick = async () => {
+    if (!currentEditWeight) return;
+    const label = document.getElementById('inputEditWeightLabel').value.trim() || 'Standard';
+    const value = parseFloat(document.getElementById('inputEditWeightValue').value) || 0;
+    const { dayId, exId, weightId } = currentEditWeight;
+    const day = days.find(d => d.id === dayId);
+    const exercises = (day.exercises || []).map(e => {
+      if (e.id !== exId) return e;
+      return { ...e, weights: (e.weights || []).map(w => w.id === weightId ? { ...w, label, value } : w) };
+    });
+    await updateDoc(doc(db, "gymDays", dayId), { exercises });
+    closeModal('overlayEditWeight');
+  };
+  document.getElementById('deleteWeightBtn').onclick = async () => {
+    if (!currentEditWeight) return;
+    const { dayId, exId, weightId } = currentEditWeight;
+    const day = days.find(d => d.id === dayId);
+    const exercises = (day.exercises || []).map(e => {
+      if (e.id !== exId) return e;
+      return { ...e, weights: (e.weights || []).filter(w => w.id !== weightId) };
+    });
+    await updateDoc(doc(db, "gymDays", dayId), { exercises });
+    closeModal('overlayEditWeight');
+  };
+</script>
+</body>
+</html>
